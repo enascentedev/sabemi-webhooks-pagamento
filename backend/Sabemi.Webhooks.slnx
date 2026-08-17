@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Sabemi.Webhooks.Api/Sabemi.Webhooks.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Sabemi.Webhooks.Tests/Sabemi.Webhooks.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -28,6 +28,9 @@ frontend/dist-ssr/
 .DS_Store
 Thumbs.db
 
+# Estado local de ferramentas de IA (não faz parte do projeto)
+.claude/
+
 # Logs
 *.log
 npm-debug.log*
