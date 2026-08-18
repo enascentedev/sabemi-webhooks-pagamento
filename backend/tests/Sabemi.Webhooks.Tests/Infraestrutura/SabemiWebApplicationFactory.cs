@@ -21,8 +21,11 @@ public sealed class SabemiWebApplicationFactory : WebApplicationFactory<Program>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
+                // 127.0.0.1 em vez de "localhost": com o Postgres em Docker sob WSL, "localhost"
+                // pode resolver para IPv6 e ter a conexão recusada. Vale igual no CI, onde o
+                // service container é publicado no loopback IPv4 do runner.
                 ["ConnectionStrings:Postgres"] =
-                    "Host=localhost;Port=5432;Database=sabemi_webhooks_tests;Username=sabemi;Password=sabemi_dev_password",
+                    "Host=127.0.0.1;Port=5432;Database=sabemi_webhooks_tests;Username=sabemi;Password=sabemi_dev_password",
                 ["WebhookSeguranca:ApiKey"] = ApiKey,
                 ["WebhookSeguranca:SegredoAssinatura"] = SegredoAssinatura,
             });

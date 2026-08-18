@@ -22,6 +22,15 @@ public sealed class ProcessamentoWebhookService(
     public async Task<WebhookPagamentoResponse> ReceberAsync(string payloadBruto, string? assinaturaRecebida, CancellationToken cancellationToken)
     {
         var (requisicao, erroParsing) = Desserializar(payloadBruto);
+
+        // A coluna é timestamptz e o Npgsql só aceita DateTime com Kind=Utc nela. Normalizar aqui,
+        // antes de qualquer uso, cobre tanto o evento válido quanto o inválido — sem isso, uma data
+        // como "2026-08-17T12:00:00" (Kind=Unspecified) estouraria no SaveChanges e o evento não
+        // seria nem registrado no log bruto.
+        requisicao = requisicao is null
+            ? null
+            : requisicao with { DataPagamento = NormalizarParaUtc(requisicao.DataPagamento) };
+
         var erroValidacao = erroParsing ?? Validar(requisicao);
 
         var evento = erroValidacao is null
@@ -73,11 +82,31 @@ public sealed class ProcessamentoWebhookService(
             var requisicao = JsonSerializer.Deserialize<WebhookPagamentoRequest>(payloadBruto, JsonOptions);
             return (requisicao, null);
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
-            return (null, "Corpo da requisição não é um JSON válido.");
+            // ex.Path identifica o campo quando o JSON está sintaticamente correto mas um valor não
+            // converte (ex.: "valor": "abc"). Sem isso, o painel mostraria "JSON inválido" para um
+            // payload que na verdade é JSON válido, escondendo qual campo está errado.
+            var campo = ex.Path?.TrimStart('$', '.');
+
+            return (null, string.IsNullOrEmpty(campo)
+                ? "Corpo da requisição não é um JSON válido."
+                : $"Campo '{campo}' tem formato inválido.");
         }
     }
+
+    /// <summary>
+    /// Converte a data recebida para UTC. <c>Unspecified</c> (data sem fuso, como
+    /// "2026-08-17T12:00:00") é assumido como já sendo UTC, seguindo o contrato do banco parceiro;
+    /// datas com offset são convertidas para o instante equivalente em UTC.
+    /// </summary>
+    private static DateTime? NormalizarParaUtc(DateTime? valor) => valor?.Kind switch
+    {
+        null => null,
+        DateTimeKind.Utc => valor,
+        DateTimeKind.Local => valor.Value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(valor.Value, DateTimeKind.Utc)
+    };
 
     private static string? Validar(WebhookPagamentoRequest? requisicao)
     {
