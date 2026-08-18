@@ -6,8 +6,8 @@ using Sabemi.Webhooks.Tests.Infraestrutura;
 
 namespace Sabemi.Webhooks.Tests.Webhooks;
 
+[Collection(ApiCollection.Nome)]
 public sealed class RecebimentoWebhookTests(SabemiWebApplicationFactory factory)
-    : IClassFixture<SabemiWebApplicationFactory>
 {
     private readonly HttpClient _client = factory.CreateClient();
 

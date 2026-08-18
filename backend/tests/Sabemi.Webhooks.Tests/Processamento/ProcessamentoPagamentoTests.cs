@@ -10,8 +10,8 @@ using Sabemi.Webhooks.Tests.Infraestrutura;
 
 namespace Sabemi.Webhooks.Tests.Processamento;
 
+[Collection(ApiCollection.Nome)]
 public sealed class ProcessamentoPagamentoTests(SabemiWebApplicationFactory factory)
-    : IClassFixture<SabemiWebApplicationFactory>
 {
     private readonly HttpClient _client = factory.CreateClient();
 
