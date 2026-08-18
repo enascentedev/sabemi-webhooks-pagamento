@@ -110,8 +110,13 @@ dotnet ef database update --project src/Sabemi.Webhooks.Api
 dotnet run --project src/Sabemi.Webhooks.Api
 ```
 
-A API sobe em `http://localhost:5166`. Em desenvolvimento, a documentação interativa (Scalar) fica
-disponível em `http://localhost:5166/scalar`.
+A API sobe em `http://127.0.0.1:5166`. Em desenvolvimento, a documentação interativa (Scalar) fica
+disponível em `http://127.0.0.1:5166/scalar`.
+
+> **Nota (WSL com rede mirrored):** se o Postgres roda em Docker dentro do WSL, prefira sempre
+> `127.0.0.1` a `localhost` nas URLs. Em alguns setups de rede *mirrored* do WSL, `localhost` tenta
+> resolver IPv6 primeiro e demora ~20s até cair para IPv4 antes de conectar — `127.0.0.1` evita essa
+> tentativa e responde em milissegundos.
 
 Credenciais de desenvolvimento (já configuradas em `appsettings.Development.json`, iguais às do
 `docker-compose.yml`):
@@ -124,15 +129,17 @@ Credenciais de desenvolvimento (já configuradas em `appsettings.Development.jso
 #### Testando o endpoint manualmente
 
 O corpo da requisição precisa de duas coisas: o header `X-Api-Key` e o header `X-Signature`, que é
-o HMAC-SHA256 (hex, minúsculo) do corpo bruto usando o segredo acima. Exemplo em PowerShell:
+o HMAC-SHA256 (hex, minúsculo) do corpo bruto usando o segredo acima. Exemplo em PowerShell 5.1+:
 
 ```powershell
+function ToHex($bytes) { -join ($bytes | ForEach-Object { $_.ToString("x2") }) }
+
 $corpo = '{"id_transacao":"tx-001","id_contrato":"contrato-001","valor":150.75,"data_pagamento":"2026-08-17T12:00:00Z","status":"Sucesso"}'
 $segredo = "dev-segredo-local-para-hmac"
-$hmac = New-Object System.Security.Cryptography.HMACSHA256([Text.Encoding]::UTF8.GetBytes($segredo))
-$assinatura = [Convert]::ToHexString($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($corpo))).ToLower()
+$hmac = [System.Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($segredo))
+$assinatura = ToHex $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($corpo))
 
-Invoke-RestMethod -Method Post -Uri http://localhost:5166/webhooks/pagamento `
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5166/webhooks/pagamento `
   -Headers @{ "X-Api-Key" = "dev-api-key-local"; "X-Signature" = $assinatura } `
   -ContentType "application/json" -Body $corpo
 ```
@@ -148,7 +155,7 @@ npm install
 npm run dev
 ```
 
-Acesse `http://localhost:5173`. O Vite faz proxy de `/api` e `/webhooks` para a API .NET, sem
+Acesse `http://127.0.0.1:5173`. O Vite faz proxy de `/api` e `/webhooks` para a API .NET, sem
 necessidade de configurar CORS em desenvolvimento.
 
 ### 4. Testes

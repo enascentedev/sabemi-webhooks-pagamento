@@ -14,11 +14,15 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: process.env.VITE_API_BASE_URL ?? "http://localhost:5166",
+        // IPv4 explícito: em alguns setups de WSL (rede mirrored), "localhost" tenta
+        // IPv6 primeiro e demora ~20s até cair para IPv4 antes de conectar.
+        target: process.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5166",
         changeOrigin: true,
       },
       "/webhooks": {
-        target: process.env.VITE_API_BASE_URL ?? "http://localhost:5166",
+        // IPv4 explícito: em alguns setups de WSL (rede mirrored), "localhost" tenta
+        // IPv6 primeiro e demora ~20s até cair para IPv4 antes de conectar.
+        target: process.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5166",
         changeOrigin: true,
       },
     },

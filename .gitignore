@@ -30,6 +30,7 @@ Thumbs.db
 
 # Estado local de ferramentas de IA (não faz parte do projeto)
 .claude/
+.playwright-mcp/
 
 # Logs
 *.log
