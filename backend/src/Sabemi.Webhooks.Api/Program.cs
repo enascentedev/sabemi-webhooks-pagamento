@@ -41,9 +41,15 @@ app.UseCors("Dashboard");
 
 app.MapWebhookEndpoints();
 app.MapPagamentoEndpoints();
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
+// Verifica o banco: uma API que responde "ok" sem conseguir persistir daria falso positivo para
+// quem monitora o serviço, já que todo o fluxo do webhook depende do Postgres.
+app.MapGet("/health", async (AppDbContext db, CancellationToken cancellationToken) =>
+        await db.Database.CanConnectAsync(cancellationToken)
+            ? Results.Ok(new { status = "ok" })
+            : Results.Json(new { status = "degradado" }, statusCode: StatusCodes.Status503ServiceUnavailable))
     .WithName("HealthCheck")
-    .WithTags("Infraestrutura");
+    .WithTags("Infraestrutura")
+    .WithSummary("Indica se a API e o banco de dados estão respondendo");
 
 // EF.IsDesignTime evita que a migração automática e a recuperação de eventos
 // pendentes rodem durante `dotnet ef migrations add`/`database update`.
