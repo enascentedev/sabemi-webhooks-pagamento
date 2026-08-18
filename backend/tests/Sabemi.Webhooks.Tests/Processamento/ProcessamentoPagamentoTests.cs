@@ -1,7 +1,11 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Sabemi.Webhooks.Api.Contracts;
+using Sabemi.Webhooks.Api.Domain;
+using Sabemi.Webhooks.Api.Infrastructure;
 using Sabemi.Webhooks.Tests.Infraestrutura;
 
 namespace Sabemi.Webhooks.Tests.Processamento;
@@ -37,6 +41,36 @@ public sealed class ProcessamentoPagamentoTests(SabemiWebApplicationFactory fact
         Assert.Equal("Processado", pagamentoFinal!.StatusProcessamento);
         Assert.Equal("Sucesso", pagamentoFinal.StatusPagamentoBanco);
         Assert.NotNull(pagamentoFinal.ProcessadoEm);
+    }
+
+    [Fact]
+    public async Task Nao_deve_somar_ao_total_pago_o_pagamento_reportado_como_erro()
+    {
+        var idContrato = Guid.NewGuid().ToString();
+        var idTransacaoSucesso = Guid.NewGuid().ToString();
+        var idTransacaoErro = Guid.NewGuid().ToString();
+
+        await _client.SendAsync(AssinaturaTestHelper.CriarRequisicaoWebhook(
+            PayloadTestHelper.CriarPayloadValido(idTransacaoSucesso, idContrato, valor: 100m, status: "Sucesso")));
+        await _client.SendAsync(AssinaturaTestHelper.CriarRequisicaoWebhook(
+            PayloadTestHelper.CriarPayloadValido(idTransacaoErro, idContrato, valor: 50m, status: "Erro")));
+
+        await AguardarStatusAsync(idTransacaoSucesso, "Processado", TimeSpan.FromSeconds(15));
+        await AguardarStatusAsync(idTransacaoErro, "Processado", TimeSpan.FromSeconds(15));
+
+        // A agregação por contrato não é exposta em nenhum endpoint, então a asserção lê a tabela
+        // status_contrato direto pelo DbContext da aplicação sob teste.
+        using var escopo = factory.Services.CreateScope();
+        var db = escopo.ServiceProvider.GetRequiredService<AppDbContext>();
+        var contrato = await db.StatusContratos.AsNoTracking().FirstOrDefaultAsync(c => c.IdContrato == idContrato);
+
+        Assert.NotNull(contrato);
+        Assert.Equal(100m, contrato!.ValorTotalPago);
+        Assert.Equal(1, contrato.QuantidadePagamentos);
+        Assert.Equal(1, contrato.QuantidadePagamentosComErro);
+        // O contrato reflete o último evento recebido, mesmo quando ele não liquidou.
+        Assert.Equal(SituacaoContrato.Erro, contrato.Situacao);
+        Assert.Equal(idTransacaoErro, contrato.UltimoIdTransacao);
     }
 
     private async Task<PagamentoResumoResponse?> BuscarPagamentoPorIdTransacaoAsync(string idTransacao)
